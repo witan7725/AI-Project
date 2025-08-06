@@ -26,38 +26,48 @@
 <script type="text/javascript">
   const URL = "./tm-my-image-model/";
   let model, webcam, labelContainer, maxPredictions;
-  let currentFacingMode = "environment"; // ✅ เริ่มต้นที่กล้องหลัง
+  let currentFacingMode = "environment"; // ✅ เริ่มกล้องหลัง
 
   async function init() {
     try {
-      // ปิดกล้องเก่าหากมี
+      // ปิดกล้องเก่า
       if (webcam?.webcam?.srcObject) {
         webcam.webcam.srcObject.getTracks().forEach(track => track.stop());
-        await webcam.stop();
       }
 
+      // โหลดโมเดล
       const modelURL = URL + "model.json";
       const metadataURL = URL + "metadata.json";
-
       model = await tmImage.load(modelURL, metadataURL);
       maxPredictions = model.getTotalClasses();
 
-      webcam = new tmImage.Webcam(300, 300, true); // flip = true
-      await webcam.setup({ facingMode: currentFacingMode }); // ✅ กำหนดกล้องตรงนี้
-      await webcam.play();
+      // เปิดกล้อง
+      webcam = new tmImage.Webcam(300, 300, true); // flip: true
+      await webcam.setup({ facingMode: currentFacingMode });
+
+      // เช็คว่ากล้องเปิดได้ไหม
+      if (!webcam.webcam?.srcObject) {
+        alert("ไม่สามารถเข้าถึงกล้องได้ โปรดอนุญาตในเบราว์เซอร์ของคุณ");
+        return;
+      }
+
+      await webcam.play(); // ✅ ปลอดภัยแล้วค่อยเรียก play()
       window.requestAnimationFrame(loop);
 
+      // ใส่ video ลงหน้าเว็บ
       document.getElementById("webcam-container").innerHTML = "";
       document.getElementById("webcam-container").appendChild(webcam.canvas);
 
+      // แสดง label
       labelContainer = document.getElementById("label-container");
       labelContainer.innerHTML = "";
       for (let i = 0; i < maxPredictions; i++) {
         labelContainer.appendChild(document.createElement("div"));
       }
-    } catch (err) {
-      alert("⚠️ Error: " + err.message);
-      console.error(err);
+
+    } catch (error) {
+      alert("⚠️ Error: " + error.message);
+      console.error("Webcam init error:", error);
     }
   }
 
@@ -78,9 +88,8 @@
 
   function switchCamera() {
     currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
-    init(); // 🌀 โหลดกล้องใหม่
+    init(); // รีโหลดกล้องใหม่
   }
 </script>
-
 </body>
 </html>
