@@ -21,7 +21,7 @@
   const URL = "./tm-my-image-model/";
 
   let model, webcam, labelContainer, maxPredictions;
-  let useFrontCamera = true; // 🔁 กล้องหน้า (default)
+  let useFrontCamera = true;
 
   async function init() {
       if (webcam) {
@@ -34,13 +34,19 @@
       model = await tmImage.load(modelURL, metadataURL);
       maxPredictions = model.getTotalClasses();
 
-      const facingMode = useFrontCamera ? "user" : "environment";
-      webcam = new tmImage.Webcam(300, 300, true, facingMode);
-      await webcam.setup();
+      const constraints = {
+          video: {
+              facingMode: useFrontCamera ? "user" : { exact: "environment" }
+          },
+          audio: false
+      };
+
+      webcam = new tmImage.Webcam(300, 300, true); // flip = true
+      await webcam.setup(constraints);
       await webcam.play();
       window.requestAnimationFrame(loop);
 
-      document.getElementById("webcam-container").innerHTML = ""; // clear
+      document.getElementById("webcam-container").innerHTML = "";
       document.getElementById("webcam-container").appendChild(webcam.canvas);
 
       labelContainer = document.getElementById("label-container");
@@ -66,7 +72,7 @@
 
   function toggleCamera() {
       useFrontCamera = !useFrontCamera;
-      init(); // รีสตาร์ทกล้องด้วยโหมดใหม่
+      init(); // รีสตาร์ทด้วยกล้องใหม่
   }
 </script>
 
