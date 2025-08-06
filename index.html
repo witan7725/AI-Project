@@ -3,22 +3,61 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>AI Camera Classifier</title>
-  <!-- ใช้เวอร์ชันที่ทดสอบแล้วเพื่อมี tmImage -->
+  <title>Teachable Machine Image Model</title>
+  <!-- ตายตัว ใช้เวอร์ชันที่ทดสอบแล้วเพื่อมี tmImage -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.20.0"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.4/dist/teachablemachine-image.min.js"></script>
   <style>
-    body { font-family: sans-serif; text-align: center; padding: 20px; }
-    video { border-radius: 12px; }
-    #label-container > div { margin: 8px; font-size: 18px; }
-    button { margin: 10px; padding: 10px 20px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: sans-serif; text-align: center; padding: 10px; }
+    h1 { font-size: 1.5rem; margin-bottom: 10px; }
+    #controls { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+    button {
+      flex: 1 1 40%;
+      padding: 12px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 6px;
+      background-color: #007bff;
+      color: white;
+    }
+    #webcam-container {
+      width: 100%;
+      max-width: 100vw;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+    video {
+      width: 100%;
+      height: auto;
+      max-width: 100%;
+      border-radius: 12px;
+    }
+    #label-container {
+      width: 100%;
+      max-width: 100%;
+      margin-top: 10px;
+    }
+    #label-container > div {
+      font-size: 1rem;
+      margin: 4px 0;
+      background: rgba(0, 0, 0, 0.05);
+      padding: 6px;
+      border-radius: 4px;
+    }
   </style>
 </head>
 <body>
   <h1>📷 AI Camera Classifier</h1>
-  <button id="start-btn">▶️ Start (Back)</button>
-  <button id="switch-btn">🔄 Switch Camera</button>
-  <div><video id="webcam" width="300" height="300" autoplay playsinline></video></div>
+  <div id="controls">
+    <button id="start-btn">▶️ Start</button>
+    <button id="switch-btn">🔄 Switch Camera</button>
+  </div>
+  <div id="webcam-container">
+    <video id="webcam" autoplay playsinline></video>
+  </div>
   <div id="label-container"></div>
 
 <script>
@@ -26,7 +65,6 @@
   let model, maxPredictions, stream;
   let currentFacing = "environment";
 
-  // โหลดโมเดลครั้งเดียว
   async function loadModel() {
     if (!model) {
       model = await tmImage.load(
@@ -37,37 +75,36 @@
     }
   }
 
-  // เริ่มกล้องด้วย facingMode
   async function startVideo() {
     try {
-      // ปิด stream เก่าถ้ามี
       if (stream) {
         stream.getTracks().forEach(t => t.stop());
       }
-      // ตั้ง constraints
-      let constraints = { video: { facingMode: { exact: currentFacing }, width: 300, height: 300 }, audio: false };
+      let constraints = {
+        video: { facingMode: { exact: currentFacing }, width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: false
+      };
       try {
         stream = await navigator.mediaDevices.getUserMedia(constraints);
       } catch {
-        // fallback เป็น ideal
         constraints.video.facingMode = currentFacing;
         stream = await navigator.mediaDevices.getUserMedia(constraints);
       }
-      document.getElementById("webcam").srcObject = stream;
+      const video = document.getElementById("webcam");
+      video.srcObject = stream;
+      await new Promise(resolve => video.onloadedmetadata = resolve);
     } catch (e) {
       alert("ไม่สามารถเข้าถึงกล้อง: " + e.message);
       console.error(e);
     }
   }
 
-  // เตรียมให้พร้อม และเริ่ม predict
   async function init() {
     await loadModel();
     await startVideo();
     requestAnimationFrame(loop);
   }
 
-  // วน predict
   async function loop() {
     const video = document.getElementById("webcam");
     const predictions = await model.predict(video);
@@ -81,7 +118,6 @@
     requestAnimationFrame(loop);
   }
 
-  // สลับกล้อง
   async function switchCamera() {
     currentFacing = currentFacing === "environment" ? "user" : "environment";
     await startVideo();
