@@ -1,78 +1,58 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>AI Camera Classifier</title>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest"></script>
   <style>
     body { font-family: sans-serif; text-align: center; padding: 20px; }
-    button { margin: 10px; padding: 10px; font-size: 16px; }
-    video, canvas { border-radius: 10px; }
+    #webcam-container { margin: 20px auto; }
+    #label-container > div { margin: 8px; font-size: 18px; }
+    button { margin: 10px; padding: 10px 20px; }
   </style>
 </head>
 <body>
   <h1>🔍 AI Camera Classifier</h1>
   <button onclick="init()">▶️ Start</button>
-  <button onclick="toggleCamera()">🔄 Switch Camera</button>
-
+  <button onclick="switchCamera()">🖼️ Switch Camera</button>
   <div id="webcam-container"></div>
   <div id="label-container"></div>
 
 <script type="text/javascript">
   const URL = "./tm-my-image-model/";
   let model, webcam, labelContainer, maxPredictions;
-  let devices = [], currentIndex = 0;
-
-  async function getVideoDevices() {
-    const allDevices = await navigator.mediaDevices.enumerateDevices();
-    return allDevices.filter(device => device.kind === "videoinput");
-  }
+  let currentFacingMode = "user"; // default to front camera
 
   async function init() {
     try {
       if (webcam && webcam.webcam && webcam.webcam.srcObject) {
-        webcam.stop();
         webcam.webcam.srcObject.getTracks().forEach(track => track.stop());
+        await webcam.stop();
       }
 
-      devices = await getVideoDevices();
-      if (!devices.length) {
-        alert("ไม่พบกล้อง");
-        return;
-      }
-
-      const selectedDeviceId = devices[currentIndex].deviceId;
       const modelURL = URL + "model.json";
       const metadataURL = URL + "metadata.json";
 
       model = await tmImage.load(modelURL, metadataURL);
       maxPredictions = model.getTotalClasses();
 
-      const constraints = {
-        video: {
-          deviceId: { exact: selectedDeviceId },
-          width: 300, height: 300
-        }
-      };
-
-      webcam = new tmImage.Webcam(300, 300, true);
-      await webcam.setup(constraints);
+      webcam = new tmImage.Webcam(300, 300, true, currentFacingMode);
+      await webcam.setup();
       await webcam.play();
       window.requestAnimationFrame(loop);
 
-      const container = document.getElementById("webcam-container");
-      container.innerHTML = "";
-      container.appendChild(webcam.canvas);
+      document.getElementById("webcam-container").innerHTML = "";
+      document.getElementById("webcam-container").appendChild(webcam.canvas);
 
       labelContainer = document.getElementById("label-container");
       labelContainer.innerHTML = "";
       for (let i = 0; i < maxPredictions; i++) {
         labelContainer.appendChild(document.createElement("div"));
       }
-
     } catch (err) {
       alert("เกิดข้อผิดพลาด: " + err.message);
-      console.error("Error:", err);
     }
   }
 
@@ -85,13 +65,13 @@
   async function predict() {
     const prediction = await model.predict(webcam.canvas);
     for (let i = 0; i < maxPredictions; i++) {
-      const text = `${prediction[i].className}: ${(prediction[i].probability * 100).toFixed(2)}%`;
-      labelContainer.childNodes[i].innerHTML = text;
+      const classPrediction = prediction[i].className + ": " + (prediction[i].probability * 100).toFixed(2) + "%";
+      labelContainer.childNodes[i].innerHTML = classPrediction;
     }
   }
 
-  function toggleCamera() {
-    currentIndex = (currentIndex + 1) % devices.length;
+  function switchCamera() {
+    currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
     init();
   }
 </script>
