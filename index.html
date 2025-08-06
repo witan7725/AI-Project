@@ -12,48 +12,63 @@
 <body>
   <h1>Computer Part Classifier</h1>
   <button onclick="init()">Start</button>
+  <button onclick="toggleCamera()">🔄 Switch Camera</button>
+
   <div id="webcam-container"></div>
   <div id="label-container"></div>
 
-  <script type="text/javascript">
-    const URL = "./tm-my-image-model/";
+<script type="text/javascript">
+  const URL = "./tm-my-image-model/";
 
-    let model, webcam, labelContainer, maxPredictions;
+  let model, webcam, labelContainer, maxPredictions;
+  let useFrontCamera = true; // 🔁 กล้องหน้า (default)
 
-    async function init() {
-        const modelURL = URL + "model.json";
-        const metadataURL = URL + "metadata.json";
+  async function init() {
+      if (webcam) {
+          await webcam.stop();
+      }
 
-        model = await tmImage.load(modelURL, metadataURL);
-        maxPredictions = model.getTotalClasses();
+      const modelURL = URL + "model.json";
+      const metadataURL = URL + "metadata.json";
 
-        const flip = true;
-        webcam = new tmImage.Webcam(300, 300, flip);
-        await webcam.setup();
-        await webcam.play();
-        window.requestAnimationFrame(loop);
+      model = await tmImage.load(modelURL, metadataURL);
+      maxPredictions = model.getTotalClasses();
 
-        document.getElementById("webcam-container").appendChild(webcam.canvas);
-        labelContainer = document.getElementById("label-container");
-        for (let i = 0; i < maxPredictions; i++) {
-            labelContainer.appendChild(document.createElement("div"));
-        }
-    }
+      const facingMode = useFrontCamera ? "user" : "environment";
+      webcam = new tmImage.Webcam(300, 300, true, facingMode);
+      await webcam.setup();
+      await webcam.play();
+      window.requestAnimationFrame(loop);
 
-    async function loop() {
-        webcam.update();
-        await predict();
-        window.requestAnimationFrame(loop);
-    }
+      document.getElementById("webcam-container").innerHTML = ""; // clear
+      document.getElementById("webcam-container").appendChild(webcam.canvas);
 
-    async function predict() {
-        const prediction = await model.predict(webcam.canvas);
-        for (let i = 0; i < maxPredictions; i++) {
-            const classPrediction =
-                prediction[i].className + ": " + (prediction[i].probability * 100).toFixed(2) + "%";
-            labelContainer.childNodes[i].innerHTML = classPrediction;
-        }
-    }
-  </script>
+      labelContainer = document.getElementById("label-container");
+      labelContainer.innerHTML = "";
+      for (let i = 0; i < maxPredictions; i++) {
+          labelContainer.appendChild(document.createElement("div"));
+      }
+  }
+
+  async function loop() {
+      webcam.update();
+      await predict();
+      window.requestAnimationFrame(loop);
+  }
+
+  async function predict() {
+      const prediction = await model.predict(webcam.canvas);
+      for (let i = 0; i < maxPredictions; i++) {
+          const classPrediction = prediction[i].className + ": " + (prediction[i].probability * 100).toFixed(2) + "%";
+          labelContainer.childNodes[i].innerHTML = classPrediction;
+      }
+  }
+
+  function toggleCamera() {
+      useFrontCamera = !useFrontCamera;
+      init(); // รีสตาร์ทกล้องด้วยโหมดใหม่
+  }
+</script>
+
 </body>
 </html>
