@@ -4,8 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>AI Camera Classifier</title>
+
+  <!-- ✅ โหลดก่อนใช้งาน -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest"></script>
+
   <style>
     body { font-family: sans-serif; text-align: center; padding: 20px; }
     #webcam-container { margin: 20px auto; }
@@ -20,10 +23,11 @@
   <div id="webcam-container"></div>
   <div id="label-container"></div>
 
+<!-- ✅ JS Code (หลังโหลด lib เสร็จ) -->
 <script type="text/javascript">
   const URL = "./tm-my-image-model/";
   let model, webcam, labelContainer, maxPredictions;
-  let currentFacingMode = "user"; // default to front camera
+  let currentFacingMode = "user";
 
   async function init() {
     try {
@@ -34,6 +38,12 @@
 
       const modelURL = URL + "model.json";
       const metadataURL = URL + "metadata.json";
+
+      // ✅ ตรวจว่ามี tmImage จริง
+      if (!window.tmImage) {
+        alert("tmImage ยังไม่ถูกโหลด");
+        return;
+      }
 
       model = await tmImage.load(modelURL, metadataURL);
       maxPredictions = model.getTotalClasses();
