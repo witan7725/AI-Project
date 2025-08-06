@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>AI Camera Switch</title>
+  <title>AI Camera with DeviceId Selection</title>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image"></script>
   <style>
@@ -11,38 +11,42 @@
   </style>
 </head>
 <body>
-  <h1>🔍 Computer Part Classifier</h1>
+  <h1>🔍 AI Camera Classifier</h1>
   <button onclick="init()">▶️ Start</button>
   <button onclick="toggleCamera()">🔄 Switch Camera</button>
-  <div id="webcam-container" style="margin-top: 20px;"></div>
+
+  <div id="webcam-container" style="margin-top:20px;"></div>
   <div id="label-container"></div>
 
 <script type="text/javascript">
   const URL = "./tm-my-image-model/";
   let model, webcam, labelContainer, maxPredictions;
-  let useFrontCamera = true;
+  let devices = [], currentIndex = 0;
 
   async function init() {
     if (webcam && webcam.webcam && webcam.webcam.srcObject) {
       webcam.stop();
-      const tracks = webcam.webcam.srcObject.getTracks();
-      tracks.forEach(track => track.stop());
+      webcam.webcam.srcObject.getTracks().forEach(t => t.stop());
       webcam.webcam.srcObject = null;
     }
 
-    // โหลดโมเดล
+    await navigator.mediaDevices.enumerateDevices().then(d => {
+      devices = d.filter(x => x.kind === "videoinput");
+    });
+
+    if (!devices.length) {
+      alert("ไม่พบกล้อง");
+      return;
+    }
+    const deviceId = devices[currentIndex].deviceId;
+
     const modelURL = URL + "model.json";
     const metadataURL = URL + "metadata.json";
     model = await tmImage.load(modelURL, metadataURL);
     maxPredictions = model.getTotalClasses();
 
-    // ตั้งค่ากล้องหน้า/หลัง
     const constraints = {
-      video: {
-        facingMode: useFrontCamera ? "user" : { ideal: "environment" },
-        width: { ideal: 300 },
-        height: { ideal: 300 }
-      },
+      video: { deviceId: { exact: deviceId }, width: { ideal: 300 }, height: { ideal: 300 } },
       audio: false
     };
 
@@ -61,10 +65,9 @@
       for (let i = 0; i < maxPredictions; i++) {
         labelContainer.appendChild(document.createElement("div"));
       }
-
-    } catch (error) {
-      alert("❌ กล้องไม่สามารถเปิดได้ อาจเพราะสิทธิ์ไม่อนุญาต หรืออุปกรณ์มีแค่กล้องเดียว");
-      console.error(error);
+    } catch(err) {
+      console.error(err);
+      alert("ไม่สามารถเปิดกล้องได้");
     }
   }
 
@@ -75,19 +78,16 @@
   }
 
   async function predict() {
-    const prediction = await model.predict(webcam.canvas);
+    const pred = await model.predict(webcam.canvas);
     for (let i = 0; i < maxPredictions; i++) {
-      const classPrediction =
-        prediction[i].className + ": " + (prediction[i].probability * 100).toFixed(2) + "%";
-      labelContainer.childNodes[i].innerHTML = classPrediction;
+      labelContainer.childNodes[i].innerHTML = pred[i].className + ": " + (pred[i].probability*100).toFixed(2) + "%";
     }
   }
 
   function toggleCamera() {
-    useFrontCamera = !useFrontCamera;
-    init(); // สลับกล้องแล้วเริ่มใหม่
+    currentIndex = (currentIndex + 1) % devices.length;
+    init();
   }
 </script>
-
 </body>
 </html>
