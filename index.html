@@ -1,90 +1,105 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>AI Camera Classifier</title>
-  <!-- โหลดเวอร์ชันที่ใช้งานได้แน่นอน -->
+  <!-- เวอร์ชันที่แน่นอน -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.20.0"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.4/dist/teachablemachine-image.min.js"></script>
   <style>
-    body { font-family: sans-serif; text-align: center; padding: 20px }
-    #webcam-container { margin: 20px auto }
-    #label-container > div { margin: 8px; font-size: 18px }
+    body { font-family: sans-serif; text-align: center; padding: 20px; }
+    #webcam-container { margin: 20px auto; }
+    #label-container > div { margin: 8px; font-size: 18px; }
     button { margin: 10px; padding: 10px 20px; }
   </style>
 </head>
 <body>
   <h1>📷 AI Camera Classifier</h1>
-  <button onclick="init()">▶️ Start</button>
-  <button onclick="switchCamera()">🔄 Switch Camera</button>
+  <button onclick="startCamera()">▶️ Start</button>
+  <button onclick="toggleCamera()">🔄 Switch Camera</button>
   <div id="webcam-container"></div>
   <div id="label-container"></div>
 
 <script>
-  const URL = "./tm-my-image-model/";
-  let model, webcam, labelContainer, maxPredictions;
-  let usingBack = true; // เริ่มที่กล้องหลัง
+  const MODEL_PATH = "./tm-my-image-model/";
+  let model, maxPredictions;
+  let webcam; 
+  let videoDevices = [];
+  let currentIndex = 0;      // index ใน videoDevices
+  let firstRun = true;
 
-  async function init() {
-    try {
-      // ปิดกล้องเดิมถ้ามี
-      if (webcam?.webcam?.srcObject) {
-        webcam.webcam.srcObject.getTracks().forEach(t => t.stop());
-        await webcam.stop();
-      }
-      // โหลดโมเดล (โหลดครั้งเดียวก็พอ)
-      if (!model) {
-        model = await tmImage.load(URL + "model.json", URL + "metadata.json");
-        maxPredictions = model.getTotalClasses();
-      }
-      webcam = new tmImage.Webcam(300, 300, true);
-      // ตั้ง constraints ให้บังคับเลนส์หลังก่อน
-      let constraints = {
-        video: {
-          facingMode: usingBack
-            ? { exact: "environment" }
-            : "user"
-        },
-        audio: false
-      };
-      // ถ้า exact พัง (บางเครื่องไม่มี environment) ให้ fallback เป็น ideal
-      try {
-        await webcam.setup(constraints);
-      } catch {
-        constraints.video.facingMode = usingBack
-          ? { ideal: "environment" }
-          : "user";
-        await webcam.setup(constraints);
-      }
-      await webcam.play();
-      window.requestAnimationFrame(loop);
-
-      // render video + labels
-      document.getElementById("webcam-container").innerHTML = "";
-      document.getElementById("webcam-container").appendChild(webcam.canvas);
-      labelContainer = document.getElementById("label-container");
-      labelContainer.innerHTML = "";
-      for (let i = 0; i < maxPredictions; i++)
-        labelContainer.appendChild(document.createElement("div"));
-
-    } catch (e) {
-      alert("📛 Error: " + e.message);
+  // โหลดโมเดลครั้งเดียว
+  async function loadModel() {
+    if (!model) {
+      model = await tmImage.load(MODEL_PATH + "model.json", MODEL_PATH + "metadata.json");
+      maxPredictions = model.getTotalClasses();
     }
+  }
+
+  // ดึงรายชื่อกล้อง videoinput
+  async function enumerateVideoDevices() {
+    const all = await navigator.mediaDevices.enumerateDevices();
+    videoDevices = all.filter(d => d.kind === "videoinput");
+    // ค้นหา index ของกล้องหลัง (label มี back/rear/environment)
+    const backIdx = videoDevices.findIndex(d => /back|rear|environment/i.test(d.label));
+    if (backIdx >= 0) currentIndex = backIdx;
+    else currentIndex = 0; // ถ้าไม่มี ให้ใช้ first camera
+  }
+
+  async function startCamera() {
+    try {
+      if (firstRun) {
+        await enumerateVideoDevices();
+        await loadModel();
+        firstRun = false;
+      }
+      await openWebcam();
+    } catch (e) {
+      alert("Error starting camera: " + e.message);
+    }
+  }
+
+  async function openWebcam() {
+    // ถ้ามีกล้องเดิม เปิดอยู่ ให้ปิดก่อน
+    if (webcam?.webcam?.srcObject) {
+      webcam.webcam.srcObject.getTracks().forEach(t => t.stop());
+      await webcam.stop();
+    }
+
+    const device = videoDevices[currentIndex];
+    if (!device) throw new Error("No video devices found");
+    const constraints = { video: { deviceId: { exact: device.deviceId } }, audio: false };
+
+    webcam = new tmImage.Webcam(300, 300, true);
+    await webcam.setup(constraints);
+    await webcam.play();
+    window.requestAnimationFrame(loop);
+
+    // render
+    const wc = document.getElementById("webcam-container");
+    wc.innerHTML = "";
+    wc.appendChild(webcam.canvas);
+
+    const lc = document.getElementById("label-container");
+    lc.innerHTML = "";
+    for (let i = 0; i < maxPredictions; i++) lc.appendChild(document.createElement("div"));
   }
 
   async function loop() {
     webcam.update();
-    const pred = await model.predict(webcam.canvas);
-    for (let i = 0; i < maxPredictions; i++)
-      labelContainer.childNodes[i].innerText =
-        `${pred[i].className}: ${(pred[i].probability * 100).toFixed(2)}%`;
+    const predictions = await model.predict(webcam.canvas);
+    predictions.forEach((p, i) => {
+      document.getElementById("label-container").childNodes[i].innerText =
+        `${p.className}: ${(p.probability * 100).toFixed(2)}%`;
+    });
     window.requestAnimationFrame(loop);
   }
 
-  function switchCamera() {
-    usingBack = !usingBack;
-    init();
+  function toggleCamera() {
+    if (!videoDevices.length) return;
+    currentIndex = (currentIndex + 1) % videoDevices.length;
+    openWebcam().catch(e => alert("Cannot switch camera: " + e.message));
   }
 </script>
 </body>
