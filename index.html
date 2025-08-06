@@ -1,62 +1,70 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Computer Part Classifier</title>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+  <title>AI Camera Switch</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image"></script>
   <style>
     body { font-family: sans-serif; text-align: center; padding: 20px; }
-    #label-container > div { margin: 8px; font-size: 18px; }
-    video { border-radius: 10px; }
+    button { margin: 10px; font-size: 16px; padding: 10px; }
+    video, canvas { border-radius: 12px; }
   </style>
 </head>
 <body>
-  <h1>Computer Part Classifier</h1>
+  <h1>🔍 Computer Part Classifier</h1>
   <button onclick="init()">▶️ Start</button>
   <button onclick="toggleCamera()">🔄 Switch Camera</button>
-
   <div id="webcam-container" style="margin-top: 20px;"></div>
   <div id="label-container"></div>
 
 <script type="text/javascript">
   const URL = "./tm-my-image-model/";
-
   let model, webcam, labelContainer, maxPredictions;
   let useFrontCamera = true;
 
   async function init() {
-    if (webcam) {
-      // 🧨 ปิด video stream เดิม
+    if (webcam && webcam.webcam && webcam.webcam.srcObject) {
+      webcam.stop();
       const tracks = webcam.webcam.srcObject.getTracks();
       tracks.forEach(track => track.stop());
       webcam.webcam.srcObject = null;
     }
 
+    // โหลดโมเดล
     const modelURL = URL + "model.json";
     const metadataURL = URL + "metadata.json";
     model = await tmImage.load(modelURL, metadataURL);
     maxPredictions = model.getTotalClasses();
 
+    // ตั้งค่ากล้องหน้า/หลัง
     const constraints = {
       video: {
-        facingMode: useFrontCamera ? "user" : { ideal: "environment" }
+        facingMode: useFrontCamera ? "user" : { ideal: "environment" },
+        width: { ideal: 300 },
+        height: { ideal: 300 }
       },
       audio: false
     };
 
-    webcam = new tmImage.Webcam(300, 300, true); // flip = true
-    await webcam.setup(constraints);
-    await webcam.play();
-    window.requestAnimationFrame(loop);
+    try {
+      webcam = new tmImage.Webcam(300, 300, true);
+      await webcam.setup(constraints);
+      await webcam.play();
+      window.requestAnimationFrame(loop);
 
-    const container = document.getElementById("webcam-container");
-    container.innerHTML = ""; // 🔁 ล้างของเก่า
-    container.appendChild(webcam.canvas);
+      const container = document.getElementById("webcam-container");
+      container.innerHTML = "";
+      container.appendChild(webcam.canvas);
 
-    labelContainer = document.getElementById("label-container");
-    labelContainer.innerHTML = "";
-    for (let i = 0; i < maxPredictions; i++) {
-      labelContainer.appendChild(document.createElement("div"));
+      labelContainer = document.getElementById("label-container");
+      labelContainer.innerHTML = "";
+      for (let i = 0; i < maxPredictions; i++) {
+        labelContainer.appendChild(document.createElement("div"));
+      }
+
+    } catch (error) {
+      alert("❌ กล้องไม่สามารถเปิดได้ อาจเพราะสิทธิ์ไม่อนุญาต หรืออุปกรณ์มีแค่กล้องเดียว");
+      console.error(error);
     }
   }
 
@@ -77,10 +85,9 @@
 
   function toggleCamera() {
     useFrontCamera = !useFrontCamera;
-    init(); // เรียกใหม่ด้วยกล้องอีกตัว
+    init(); // สลับกล้องแล้วเริ่มใหม่
   }
 </script>
-
 
 </body>
 </html>
