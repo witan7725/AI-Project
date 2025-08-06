@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>AI Camera Classifier</title>
 
-  <!-- ✅ โหลดก่อนใช้งาน -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest"></script>
+  <!-- โหลด Teachable Machine และ TensorFlow.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.20.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.4/dist/teachablemachine-image.min.js"></script>
 
   <style>
     body { font-family: sans-serif; text-align: center; padding: 20px; }
@@ -17,33 +17,27 @@
   </style>
 </head>
 <body>
-  <h1>🔍 AI Camera Classifier</h1>
+  <h1>📷 AI Camera Classifier</h1>
   <button onclick="init()">▶️ Start</button>
-  <button onclick="switchCamera()">🖼️ Switch Camera</button>
+  <button onclick="switchCamera()">🔄 Switch to Front</button>
+
   <div id="webcam-container"></div>
   <div id="label-container"></div>
 
-<!-- ✅ JS Code (หลังโหลด lib เสร็จ) -->
 <script type="text/javascript">
   const URL = "./tm-my-image-model/";
   let model, webcam, labelContainer, maxPredictions;
-  let currentFacingMode = "user";
+  let currentFacingMode = "environment"; // ✅ เริ่มต้นด้วยกล้องหลัง
 
   async function init() {
     try {
-      if (webcam && webcam.webcam && webcam.webcam.srcObject) {
+      if (webcam?.webcam?.srcObject) {
         webcam.webcam.srcObject.getTracks().forEach(track => track.stop());
         await webcam.stop();
       }
 
       const modelURL = URL + "model.json";
       const metadataURL = URL + "metadata.json";
-
-      // ✅ ตรวจว่ามี tmImage จริง
-      if (!window.tmImage) {
-        alert("tmImage ยังไม่ถูกโหลด");
-        return;
-      }
 
       model = await tmImage.load(modelURL, metadataURL);
       maxPredictions = model.getTotalClasses();
@@ -62,7 +56,7 @@
         labelContainer.appendChild(document.createElement("div"));
       }
     } catch (err) {
-      alert("เกิดข้อผิดพลาด: " + err.message);
+      alert("📛 Error: " + err.message);
     }
   }
 
@@ -75,15 +69,20 @@
   async function predict() {
     const prediction = await model.predict(webcam.canvas);
     for (let i = 0; i < maxPredictions; i++) {
-      const classPrediction = prediction[i].className + ": " + (prediction[i].probability * 100).toFixed(2) + "%";
+      const classPrediction =
+        prediction[i].className + ": " + (prediction[i].probability * 100).toFixed(2) + "%";
       labelContainer.childNodes[i].innerHTML = classPrediction;
     }
   }
 
   function switchCamera() {
-    currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
-    init();
+    // 🔁 เปลี่ยนโหมดกล้อง
+    currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
+    document.querySelector("button:nth-of-type(2)").innerText =
+      currentFacingMode === "environment" ? "🔄 Switch to Front" : "🔄 Switch to Back";
+    init(); // รีโหลดกล้อง
   }
 </script>
+
 </body>
 </html>
