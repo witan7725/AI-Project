@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>AI Camera Classifier</title>
 
-  <!-- โหลด Teachable Machine และ TensorFlow.js -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.20.0"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.4/dist/teachablemachine-image.min.js"></script>
 
@@ -19,7 +18,7 @@
 <body>
   <h1>📷 AI Camera Classifier</h1>
   <button onclick="init()">▶️ Start</button>
-  <button onclick="switchCamera()">🔄 Switch to Front</button>
+  <button onclick="switchCamera()">🔄 Switch Camera</button>
 
   <div id="webcam-container"></div>
   <div id="label-container"></div>
@@ -27,10 +26,11 @@
 <script type="text/javascript">
   const URL = "./tm-my-image-model/";
   let model, webcam, labelContainer, maxPredictions;
-  let currentFacingMode = "environment"; // ✅ เริ่มต้นด้วยกล้องหลัง
+  let currentFacingMode = "environment"; // ✅ เริ่มต้นที่กล้องหลัง
 
   async function init() {
     try {
+      // ปิดกล้องเก่าหากมี
       if (webcam?.webcam?.srcObject) {
         webcam.webcam.srcObject.getTracks().forEach(track => track.stop());
         await webcam.stop();
@@ -42,8 +42,8 @@
       model = await tmImage.load(modelURL, metadataURL);
       maxPredictions = model.getTotalClasses();
 
-      webcam = new tmImage.Webcam(300, 300, true, currentFacingMode);
-      await webcam.setup();
+      webcam = new tmImage.Webcam(300, 300, true); // flip = true
+      await webcam.setup({ facingMode: currentFacingMode }); // ✅ กำหนดกล้องตรงนี้
       await webcam.play();
       window.requestAnimationFrame(loop);
 
@@ -56,7 +56,8 @@
         labelContainer.appendChild(document.createElement("div"));
       }
     } catch (err) {
-      alert("📛 Error: " + err.message);
+      alert("⚠️ Error: " + err.message);
+      console.error(err);
     }
   }
 
@@ -76,11 +77,8 @@
   }
 
   function switchCamera() {
-    // 🔁 เปลี่ยนโหมดกล้อง
-    currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
-    document.querySelector("button:nth-of-type(2)").innerText =
-      currentFacingMode === "environment" ? "🔄 Switch to Front" : "🔄 Switch to Back";
-    init(); // รีโหลดกล้อง
+    currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
+    init(); // 🌀 โหลดกล้องใหม่
   }
 </script>
 
